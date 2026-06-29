@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TourDesk AI — Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">🦘</span>
+        <div>
+          <div class="logo-title">TourDesk AI</div>
+          <div class="logo-sub">Guest Message Classifier</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <span id="model-badge" class="badge badge-loading">Checking model…</span>
+        <span id="live-clock" class="clock"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ── Stats row ── -->
+    <section class="stats-row">
+      <div class="stat-card stat-total">
+        <div class="stat-num" id="stat-total">—</div>
+        <div class="stat-label">Total Messages</div>
+      </div>
+      <div class="stat-card stat-automated">
+        <div class="stat-num" id="stat-automated">—</div>
+        <div class="stat-label">🤖 Automated</div>
+      </div>
+      <div class="stat-card stat-assisted">
+        <div class="stat-num" id="stat-assisted">—</div>
+        <div class="stat-label">👤 Assisted</div>
+      </div>
+      <div class="stat-card stat-escalate">
+        <div class="stat-num" id="stat-escalate">—</div>
+        <div class="stat-label">🚨 Escalate</div>
+      </div>
+      <div class="stat-card stat-uncertain">
+        <div class="stat-num" id="stat-uncertain">—</div>
+        <div class="stat-label">⚠️ Uncertain</div>
+      </div>
+    </section>
+
+    <div class="content-grid">
+
+      <!-- ── Left: message feed ── -->
+      <section class="card feed-card">
+        <div class="card-header">
+          <h2>Live Message Feed</h2>
+          <div class="filter-tabs">
+            <button class="filter-btn active" data-label="all">All</button>
+            <button class="filter-btn" data-label="Automated">Automated</button>
+            <button class="filter-btn" data-label="Assisted">Assisted</button>
+            <button class="filter-btn" data-label="Escalate">Escalate</button>
+            <button class="filter-btn" data-label="uncertain">Uncertain</button>
+          </div>
+        </div>
+        <div id="message-feed" class="message-feed">
+          <div class="empty-state">No messages yet. Waiting for WhatsApp webhook…</div>
+        </div>
+      </section>
+
+      <!-- ── Right: test panel ── -->
+      <aside class="right-panel">
+
+        <section class="card test-card">
+          <div class="card-header"><h2>Test Classifier</h2></div>
+          <div class="test-body">
+            <textarea
+              id="test-input"
+              placeholder="Type a guest message to classify…"
+              rows="4"
+            ></textarea>
+            <button id="test-btn" class="btn btn-primary">Classify</button>
+            <div id="test-result" class="test-result hidden">
+              <div class="result-label-row">
+                <span id="result-badge" class="tier-badge"></span>
+                <span id="result-conf" class="conf-text"></span>
+              </div>
+              <div id="result-scores" class="score-bars"></div>
+              <div id="result-uncertain" class="uncertain-warning hidden">
+                ⚠️ Low confidence — recommend human review
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card info-card">
+          <div class="card-header"><h2>Tier Guide</h2></div>
+          <ul class="tier-guide">
+            <li><span class="tier-dot dot-automated"></span><strong>Automated</strong> — Routine questions answered by the system (times, locations, FAQs)</li>
+            <li><span class="tier-dot dot-assisted"></span><strong>Assisted</strong> — Requests needing staff personalisation (booking changes, special requests)</li>
+            <li><span class="tier-dot dot-escalate"></span><strong>Escalate</strong> — Urgent or safety-critical situations requiring immediate human response</li>
+            <li><span class="tier-dot dot-uncertain"></span><strong>Uncertain</strong> — Low confidence prediction — always routed to human review</li>
+          </ul>
+        </section>
+
+      </aside>
+    </div>
+  </main>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

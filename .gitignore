@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+
+# Model weights — too large for GitHub (download from Google Drive)
+ml_classifier/model/
+*.safetensors
+*.bin
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data — privacy
+*.csv
+!ml_classifier/sample_messages.csv
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
