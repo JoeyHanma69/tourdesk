@@ -1,7 +1,7 @@
 # 🦘 TourDesk AI
 
-> A WhatsApp-connected guest message classifier for Turtle Down Under.  
-> Automatically routes incoming messages into **Automated**, **Assisted**, or **Escalate** tiers using a fine-tuned DistilBERT model — with a live dashboard to monitor everything.
+> A guest message classifier for Turtle Down Under, powered by our own TDU web chatbot.  
+> Guests start a conversation in the in-app chatbot; incoming messages are automatically routed into **Automated**, **Assisted**, or **Escalate** tiers using a fine-tuned DistilBERT model — with a live dashboard to monitor everything.
 
 ---
 
@@ -12,19 +12,22 @@ tourdesk/
 ├── backend/
 │   ├── app.py                  # Flask entry point
 │   ├── routes/
-│   │   ├── webhook.py          # WhatsApp Cloud API webhook (GET + POST)
+│   │   ├── chat.py             # Chatbot page + /api/chat endpoint
 │   │   ├── dashboard.py        # Serves the HTML frontend
 │   │   └── api.py              # JSON API for the dashboard
 │   └── utils/
 │       ├── classifier.py       # Loads DistilBERT, exposes predict()
 │       ├── message_store.py    # In-memory message store
-│       └── whatsapp.py         # WhatsApp send helpers
+│       └── chat.py             # Chatbot reply builders
 ├── frontend/
 │   ├── templates/
-│   │   └── dashboard.html      # Main dashboard page
+│   │   ├── dashboard.html      # Staff dashboard page
+│   │   └── chat.html           # Guest chatbot widget
 │   └── static/
 │       ├── css/style.css
-│       └── js/dashboard.js     # Polling, feed rendering, test panel
+│       ├── css/chat.css
+│       ├── js/dashboard.js     # Polling, feed rendering, test panel
+│       └── js/chat.js          # Guest chatbot logic
 ├── ml_classifier/
 │   ├── preparingTrainingData.ipynb
 │   ├── trainModel.ipynb
@@ -32,8 +35,6 @@ tourdesk/
 │   ├── requirements.txt        # ML-only dependencies
 │   ├── sample_messages.csv     # 10 test messages
 │   └── model/                  # ← Download from Google Drive (not in repo)
-├── scripts/
-│   └── export_chat.py          # Parse WhatsApp .txt exports to CSV
 ├── docs/
 │   └── TourDesk_AI_Model_Report.docx
 ├── requirements.txt            # Full app dependencies
@@ -46,11 +47,11 @@ tourdesk/
 ## 🖥️ How It Works
 
 ```
-Guest sends WhatsApp message
+Guest opens the TDU web chatbot  (/chat)
         │
         ▼
-WhatsApp Cloud API
-        │  POST /webhook
+Chatbot widget (chat.js)
+        │  POST /api/chat
         ▼
 Flask Backend (app.py)
         │
@@ -62,7 +63,7 @@ DistilBERT Classifier
 Automated            Assisted / Escalate
    │                     │
 Auto-reply sent      Appears in dashboard
-                     (Escalate also alerts staff)
+back in the chat     (Escalate also flagged for staff)
 ```
 
 ---
@@ -139,15 +140,11 @@ Fill in the values in Notepad:
 
 ```env
 SECRET_KEY=any-random-string-here
-WHATSAPP_VERIFY_TOKEN=tourdesk_verify
-WHATSAPP_ACCESS_TOKEN=   ← from Meta Developer Portal
-WHATSAPP_PHONE_ID=       ← from Meta Developer Portal
-STAFF_ALERT_NUMBER=      ← your phone number (optional)
 MODEL_DIR=ml_classifier/model
 CONFIDENCE_THRESHOLD=0.65
 ```
 
-Save and close. You can leave `WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_ID` blank for now to run in local-only mode.
+Save and close. No external messaging credentials are needed — the chatbot is hosted by this app.
 
 ---
 
@@ -187,44 +184,22 @@ You should see:
 🚀 TourDesk AI running on http://localhost:5000
 ```
 
-Open your browser: **http://localhost:5000**
+Open your browser:
 
-The dashboard shows the live message feed, stats, and the test panel.
+- **Staff dashboard:** http://localhost:5000
+- **Guest chatbot:** http://localhost:5000/chat
 
----
-
-### Step 8 — Expose to the Internet with ngrok (for WhatsApp webhook)
-
-WhatsApp needs a public HTTPS URL to send messages to. Use **ngrok** to tunnel your local server:
-
-```powershell
-# Install ngrok (one time)
-winget install ngrok
-
-# In a NEW PowerShell window (keep the Flask server running in the first one)
-ngrok http 5000
-```
-
-ngrok will show something like:
-```
-Forwarding  https://abc123.ngrok-free.app -> http://localhost:5000
-```
-
-Copy the `https://...` URL — you'll need it in the next step.
+The dashboard shows the live message feed, stats, and the test panel. The chatbot is what guests use to start a conversation — every message they send is classified and appears in the dashboard feed.
 
 ---
 
-### Step 9 — Register Webhook in Meta Developer Portal
+### Step 8 — Try the Chatbot
 
-1. Go to https://developers.facebook.com → Your App → WhatsApp → Configuration
-2. Under **Webhook**, click **Edit**
-3. Set:
-   - **Callback URL:** `https://abc123.ngrok-free.app/webhook`
-   - **Verify token:** `tourdesk_verify` (must match `.env`)
-4. Click **Verify and Save**
-5. Subscribe to the **messages** field
+1. Open **http://localhost:5000/chat** (or click **💬 Open Chat** in the dashboard header).
+2. The assistant greets you and starts the conversation.
+3. Type a message and send — you'll get an automated reply, and the message appears live in the staff dashboard.
 
-If it says "Verified" — you're connected. WhatsApp messages now flow into the dashboard.
+That's the whole loop — no external services, tunnels, or webhooks required.
 
 ---
 
@@ -233,22 +208,18 @@ If it says "Verified" — you're connected. WhatsApp messages now flow into the 
 Every time you come back to work on this:
 
 ```powershell
-# Terminal 1 — Flask server
 cd C:\Users\cucum\Documents\tourdesk
 .\venv\Scripts\Activate.ps1
 python backend/app.py
-
-# Terminal 2 — ngrok tunnel (only needed if you want live WhatsApp)
-ngrok http 5000
 ```
 
-Then open http://localhost:5000 in your browser.
+Then open http://localhost:5000 (dashboard) and http://localhost:5000/chat (chatbot) in your browser.
 
 ---
 
-## 🧪 Test Without WhatsApp
+## 🧪 Quick Test
 
-Use the **Test Classifier** panel on the dashboard — type any message and click **Classify**. No webhook or ngrok needed.
+Use the **Test Classifier** panel on the dashboard — type any message and click **Classify** — or just chat with the bot at `/chat`.
 
 Or use the CLI:
 
@@ -310,8 +281,8 @@ Overall accuracy: **86.3%** · Training set: **533 labelled messages** · Model:
 **Dashboard shows "Stub Mode — model not loaded"**
 → Model files are missing. Re-check Step 6 — `model.safetensors` must be in `ml_classifier/model/`.
 
-**ngrok webhook verification fails**
-→ Make sure Flask is running on port 5000 before starting ngrok. Check the verify token matches `.env`.
+**Chatbot page won't load at `/chat`**
+→ Make sure the Flask server is running on port 5000. Open http://localhost:5000/chat directly.
 
 **`error: src refspec main does not match any`** on first push
 → `git branch -M main` then `git push -u origin main`

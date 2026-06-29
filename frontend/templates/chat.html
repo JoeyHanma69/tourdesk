@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TourDesk — Chat with us</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="/static/css/chat.css" />
+</head>
+<body>
+
+  <div class="chat-shell">
+    <div class="chat-window">
+
+      <!-- ── Chat header ── -->
+      <header class="chat-header">
+        <span class="chat-avatar">🦘</span>
+        <div>
+          <div class="chat-title">Turtle Down Under</div>
+          <div class="chat-status">TourDesk assistant · online</div>
+        </div>
+      </header>
+
+      <!-- ── Message thread ── -->
+      <div id="chat-thread" class="chat-thread" aria-live="polite"></div>
+
+      <!-- ── Composer ── -->
+      <form id="chat-form" class="chat-composer">
+        <input
+          id="chat-input"
+          class="chat-input"
+          type="text"
+          placeholder="Type your message…"
+          autocomplete="off"
+        />
+        <button id="chat-send" class="chat-send" type="submit">Send</button>
+      </form>
+
+    </div>
+  </div>
+
+  <script src="/static/js/chat.js"></script>
+</body>
+</html>

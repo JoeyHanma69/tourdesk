@@ -14,7 +14,7 @@ import os
 from flask import Flask
 from flask_cors import CORS
 
-from backend.routes.webhook import webhook_bp
+from backend.routes.chat import chat_bp
 from backend.routes.dashboard import dashboard_bp
 from backend.routes.api import api_bp
 from backend.utils.classifier import TourDeskClassifier
@@ -30,9 +30,6 @@ def create_app():
 
     # Load config from environment (or .env file via python-dotenv)
     app.config["SECRET_KEY"]           = os.getenv("SECRET_KEY", "dev-secret-change-me")
-    app.config["WHATSAPP_VERIFY_TOKEN"]= os.getenv("WHATSAPP_VERIFY_TOKEN", "tourdesk_verify")
-    app.config["WHATSAPP_ACCESS_TOKEN"]= os.getenv("WHATSAPP_ACCESS_TOKEN", "")
-    app.config["WHATSAPP_PHONE_ID"]    = os.getenv("WHATSAPP_PHONE_ID", "")
     app.config["MODEL_DIR"]            = os.getenv("MODEL_DIR", "ml_classifier/model")
     app.config["CONFIDENCE_THRESHOLD"] = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
 
@@ -43,7 +40,7 @@ def create_app():
     )
 
     # Register blueprints
-    app.register_blueprint(webhook_bp)
+    app.register_blueprint(chat_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(api_bp)
 

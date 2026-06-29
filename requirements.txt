@@ -5,9 +5,6 @@
 flask==3.0.3
 flask-cors==4.0.1
 
-# HTTP requests (WhatsApp API calls)
-requests==2.32.3
-
 # ML (pinned to match Colab training environment)
 transformers==4.40.2
 accelerate==0.28.0

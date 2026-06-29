@@ -79,7 +79,7 @@ function renderFeed(messages) {
   if (!feed) return;
 
   if (!messages.length) {
-    feed.innerHTML = '<div class="empty-state">No messages yet. Waiting for WhatsApp webhook…</div>';
+    feed.innerHTML = '<div class="empty-state">No messages yet. Waiting for chatbot messages…</div>';
     return;
   }
 
