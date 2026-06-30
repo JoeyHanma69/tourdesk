@@ -75,7 +75,7 @@ class TourDeskClassifier:
                 all_scores={"Automated": 0.0, "Assisted": 0.0, "Escalate": 0.0},
             )
 
-        results = self._pipeline(text, truncation=True, max_length=128)[0]
+        results = self._pipeline(text, truncation=True, max_length=128, return_token_type_ids=False)[0]
         top = max(results, key=lambda x: x["score"])
         all_scores = {r["label"]: round(r["score"], 4) for r in results}
 
