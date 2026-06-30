@@ -78,7 +78,7 @@ def _enabled() -> bool:
 
 
 def _provider() -> str:
-    return os.getenv("AI_PROVIDER", "anthropic").strip().lower()
+    return os.getenv("AI_PROVIDER", "ollama").strip().lower()
 
 
 # ── Provider: Ollama (local, free, no API key) ───────────────────────────────
@@ -106,7 +106,22 @@ def _ollama_reply(message: str) -> Optional[str]:
             # doesn't wait for a cold reload. Set "0" to unload immediately.
             keep_alive=os.getenv("OLLAMA_KEEP_ALIVE", "10m"),
         )
-        return (resp["message"]["content"] or "").strip() or None
+        content = None
+        if hasattr(resp, "message"):
+            content = getattr(resp.message, "content", None)
+        elif isinstance(resp, dict):
+            content = resp.get("message", {}).get("content")
+        else:
+            try:
+                content = resp["message"]["content"]
+            except Exception:
+                content = None
+
+        if not content:
+            logger.error("Ollama reply returned empty content — falling back to canned reply")
+            return None
+
+        return str(content).strip() or None
     except Exception as e:
         logger.error("Ollama reply failed, falling back to canned reply: %s", e)
         return None
