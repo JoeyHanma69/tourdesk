@@ -76,6 +76,74 @@ body {
   padding: 24px 20px;
 }
 
+/* ── Business impact band ────────────────────────────────────────────────── */
+.impact-band {
+  background: linear-gradient(135deg, var(--navy) 0%, #18324A 60%, var(--teal) 140%);
+  border-radius: var(--radius);
+  padding: 18px 22px 22px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-md);
+  color: var(--white);
+}
+.impact-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.impact-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #A7D3D3;
+}
+.impact-since { font-size: 12px; color: #8FB0B0; font-variant-numeric: tabular-nums; }
+
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.impact-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.impact-primary {
+  background: rgba(167, 211, 211, 0.14);
+  border-color: rgba(167, 211, 211, 0.35);
+}
+.impact-num {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.5px;
+}
+.impact-primary .impact-num { color: #BDEAEA; }
+.impact-label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 8px;
+  color: #EAF4F4;
+}
+.impact-sub { font-size: 11px; color: #93B2B2; margin-top: 3px; }
+.impact-info {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--navy);
+  background: #A7D3D3;
+  padding: 1px 5px;
+  border-radius: 6px;
+  cursor: help;
+  vertical-align: middle;
+}
+
 /* ── Stats row ───────────────────────────────────────────────────────────── */
 .stats-row {
   display: grid;
@@ -294,11 +362,14 @@ textarea:focus { outline: none; border-color: var(--teal); }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
+  .impact-grid  { grid-template-columns: repeat(2, 1fr); }
   .stats-row    { grid-template-columns: repeat(3, 1fr); }
   .content-grid { grid-template-columns: 1fr; }
   .right-panel  { order: -1; }
 }
 @media (max-width: 560px) {
+  .impact-grid { grid-template-columns: 1fr 1fr; }
+  .impact-num  { font-size: 28px; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .stat-total { grid-column: 1 / -1; }
 }

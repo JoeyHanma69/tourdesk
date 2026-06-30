@@ -19,6 +19,7 @@ from flask import Blueprint, request, jsonify, render_template, current_app
 from backend.utils.message_store import add_message
 from backend.utils.chat import (
     WELCOME_MESSAGE,
+    build_booking_reply,
     build_automated_reply,
     build_assisted_reply,
     build_escalation_reply,
@@ -88,6 +89,12 @@ def receive():
 
 def _build_reply(sender: str, text: str, prediction) -> str:
     """Pick the right reply for the predicted tier."""
+    # Booking enquiries are handled first, with a verify-before-reveal gate,
+    # regardless of the classified tier. Returns None if there's no reference.
+    booking_reply = build_booking_reply(text)
+    if booking_reply:
+        return booking_reply
+
     if prediction.uncertain:
         logger.info(f"⚠️  Low confidence ({prediction.confidence:.0%}) — routed to human review")
         return build_uncertain_reply(text)

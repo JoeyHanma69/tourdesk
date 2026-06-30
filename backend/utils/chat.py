@@ -8,6 +8,11 @@ external messaging provider. Each helper builds the text the guest sees based
 on the classifier's predicted tier.
 """
 
+from typing import Optional
+
+from backend.utils.ai_reply import generate_automated_reply
+from backend.utils.booking_store import find_reference, lookup_booking
+
 
 WELCOME_MESSAGE = (
     "👋 Hi, welcome to Turtle Down Under! I'm the TourDesk assistant. "
@@ -17,12 +22,50 @@ WELCOME_MESSAGE = (
 
 def build_automated_reply(original_message: str) -> str:
     """
-    Reply for routine ('Automated') questions. In production, replace this with
-    your LLM call or FAQ lookup based on the message content.
+    Reply for routine ('Automated') questions.
+
+    Tries Claude first (when USE_AI_REPLIES is on) so the guest gets a real
+    answer; if AI replies are disabled or the call fails, falls back to the
+    canned message below — so this always returns something sensible.
     """
+    ai = generate_automated_reply(original_message)
+    if ai:
+        return ai
+
     return (
         "👋 Thanks for your message! We've got the details you need on the way.\n\n"
         "If anything's still unclear, just let me know and I'll connect you with our team."
+    )
+
+
+def build_booking_reply(message: str) -> Optional[str]:
+    """Handle booking-status questions with a verify-before-reveal gate.
+
+    Returns None when the message has no booking reference, so the normal
+    tier-based reply flow continues. When a reference IS present:
+      - name verified  -> return the booking details
+      - not verified    -> ask for the name (never reveal whether the
+                           reference exists, to anyone who can't name it)
+    """
+    reference = find_reference(message)
+    if not reference:
+        return None  # not a booking enquiry
+
+    booking = lookup_booking(reference, message)
+    if booking:
+        return (
+            f"Thanks — I've verified booking {reference}. "
+            f"Your {booking['tour']} is {booking['status'].lower()} for "
+            f"{booking['guests']} guest(s) on {booking['date']} at {booking['time']}. "
+            "Is there anything else I can help with? "
+            "(To change or cancel it, I'll connect you with our team.)"
+        )
+
+    # Reference detected but identity not verified — ask for the name. We do not
+    # say whether the reference exists; that's the security gate.
+    return (
+        f"I can help with booking {reference}. To protect your reservation, "
+        "please reply with the full name on the booking so I can verify it's you."
     )
 
 
