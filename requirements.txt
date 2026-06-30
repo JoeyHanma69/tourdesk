@@ -17,5 +17,8 @@ scikit-learn>=1.3.0
 # Environment variable loading
 python-dotenv==1.0.1
 
+# AI-generated replies (optional — only used when USE_AI_REPLIES=true)
+anthropic>=0.40.0
+
 # Production server (optional — for deployment)
 gunicorn==22.0.0

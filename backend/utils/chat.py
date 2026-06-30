@@ -8,6 +8,8 @@ external messaging provider. Each helper builds the text the guest sees based
 on the classifier's predicted tier.
 """
 
+from backend.utils.ai_reply import generate_automated_reply
+
 
 WELCOME_MESSAGE = (
     "👋 Hi, welcome to Turtle Down Under! I'm the TourDesk assistant. "
@@ -17,9 +19,16 @@ WELCOME_MESSAGE = (
 
 def build_automated_reply(original_message: str) -> str:
     """
-    Reply for routine ('Automated') questions. In production, replace this with
-    your LLM call or FAQ lookup based on the message content.
+    Reply for routine ('Automated') questions.
+
+    Tries Claude first (when USE_AI_REPLIES is on) so the guest gets a real
+    answer; if AI replies are disabled or the call fails, falls back to the
+    canned message below — so this always returns something sensible.
     """
+    ai = generate_automated_reply(original_message)
+    if ai:
+        return ai
+
     return (
         "👋 Thanks for your message! We've got the details you need on the way.\n\n"
         "If anything's still unclear, just let me know and I'll connect you with our team."
