@@ -32,6 +32,10 @@ class TourDeskClassifier:
         self._load()
 
     def _load(self):
+        if not os.path.isabs(self.model_dir):
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            self.model_dir = os.path.normpath(os.path.join(repo_root, self.model_dir))
+
         if not os.path.isdir(self.model_dir):
             logger.warning(
                 f"⚠️  Model not found at '{self.model_dir}'. "

@@ -11,6 +11,7 @@ With gunicorn (production):
 """
 
 import os
+from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
 
@@ -18,6 +19,8 @@ from backend.routes.chat import chat_bp
 from backend.routes.dashboard import dashboard_bp
 from backend.routes.api import api_bp
 from backend.utils.classifier import TourDeskClassifier
+
+load_dotenv()
 
 # ── App factory ──────────────────────────────────────────────────────────────
 def create_app():
