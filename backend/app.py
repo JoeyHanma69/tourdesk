@@ -11,9 +11,16 @@ With gunicorn (production):
 """
 
 import os
+import sys
+from pathlib import Path
+
 from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from backend.routes.chat import chat_bp
 from backend.routes.dashboard import dashboard_bp
@@ -54,5 +61,5 @@ app = create_app()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
-    print(f"🚀 TourDesk AI running on http://localhost:{port}")
-    app.run(debug=True, host="0.0.0.0", port=port)
+    print(f"🚀 TourDesk AI running on http://localhost:{port}", flush=True)
+    app.run(debug=True, host="0.0.0.0", port=port, use_reloader=False)
