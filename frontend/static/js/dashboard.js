@@ -10,6 +10,10 @@ const POLL_INTERVAL = 5000; // ms
 let   currentFilter = "all";
 let   lastMessageId = 0;
 
+// Estimated staff handling time saved per auto-resolved message (minutes).
+// Used only for the "Staff time saved (est.)" impact metric.
+const MINUTES_SAVED_PER_AUTOMATED = 3;
+
 // ── Clock ────────────────────────────────────────────────────────────────────
 function updateClock() {
   const el = document.getElementById("live-clock");
@@ -46,7 +50,33 @@ async function refreshStats() {
     setText("stat-assisted",  data.Assisted  ?? 0);
     setText("stat-escalate",  data.Escalate  ?? 0);
     setText("stat-uncertain", data.uncertain ?? 0);
+    renderImpact(data);
   } catch (_) {}
+}
+
+// ── Business impact metrics (derived from stats) ───────────────────────────────
+function renderImpact(data) {
+  const total     = data.total     ?? 0;
+  const automated = data.Automated ?? 0;
+  const escalate  = data.Escalate  ?? 0;
+
+  // Auto-resolution rate
+  const rate = total > 0 ? Math.round((automated / total) * 100) : 0;
+  setText("impact-rate", total > 0 ? rate + "%" : "—");
+
+  // Estimated staff time saved
+  setText("impact-time", formatMinutesSaved(automated * MINUTES_SAVED_PER_AUTOMATED));
+
+  // Escalations caught + total handled
+  setText("impact-escalations", escalate);
+  setText("impact-handled", total);
+}
+
+function formatMinutesSaved(mins) {
+  if (mins <= 0) return "—";
+  if (mins < 60) return mins + " min";
+  const hrs = mins / 60;
+  return (hrs < 10 ? hrs.toFixed(1) : Math.round(hrs)) + " hrs";
 }
 
 function setText(id, val) {
