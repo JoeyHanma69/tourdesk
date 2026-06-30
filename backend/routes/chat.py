@@ -19,6 +19,7 @@ from flask import Blueprint, request, jsonify, render_template, current_app
 from backend.utils.message_store import add_message
 from backend.utils.chat import (
     WELCOME_MESSAGE,
+    is_urgent,
     build_booking_reply,
     build_automated_reply,
     build_assisted_reply,
@@ -69,6 +70,15 @@ def receive():
 
     # ── Classify ─────────────────────────────────────────────────────────────
     prediction = current_app.classifier.predict(text)
+
+    # Safety net: a deterministic keyword check forces urgent/safety messages to
+    # Escalate, even when the ML model misses them. Applied before storing so the
+    # dashboard also shows it flagged as an escalation.
+    if is_urgent(text):
+        logger.warning(f"🚨 URGENT keyword match — forcing Escalate. From {sender}: {text[:80]}")
+        prediction.label = "Escalate"
+        prediction.uncertain = False
+
     add_message(sender, text, prediction)
 
     logger.info(
