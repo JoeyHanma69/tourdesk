@@ -47,10 +47,20 @@ TOUR FACTS (placeholder — replace with the real Turtle Down Under details):
 
 SYSTEM_PROMPT = (
     "You are the Turtle Down Under guest assistant in a live web chat.\n"
-    "Answer using ONLY the facts below. If the answer is not covered, do NOT "
-    "guess — say you'll connect the guest with a team member who can help.\n"
-    "Keep replies warm and concise (2-3 sentences) and end by inviting any "
-    "follow-up questions.\n\n"
+    "\n"
+    "RULES:\n"
+    "- Answer using ONLY the facts below. Never invent times, prices, or policies.\n"
+    "- If the answer is not in the facts, say briefly that you'll connect the guest "
+    "with a team member — do not guess and do not apologise repeatedly.\n"
+    "- Be warm and concise: 2-3 sentences, no preamble like 'Thanks for your "
+    "message'. Answer the question directly, then invite any follow-up.\n"
+    "- Plain, friendly English. No markdown, no bullet points, no emoji.\n"
+    "\n"
+    "EXAMPLE\n"
+    "Guest: what time do tours leave?\n"
+    "You: Our tours depart daily at 9:00 AM and 1:00 PM from the Main Street "
+    "jetty — try to arrive about 15 minutes early. Anything else I can help with?\n"
+    "\n"
     + TDU_FACTS
 )
 
@@ -83,6 +93,18 @@ def _ollama_reply(message: str) -> Optional[str]:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": message},
             ],
+            # Quality + speed tuning. Lower temperature = factual, consistent
+            # answers (less drift); num_predict caps length so replies stay short
+            # and fast; num_ctx gives room for the facts + question.
+            options={
+                "temperature": float(os.getenv("OLLAMA_TEMPERATURE", "0.3")),
+                "top_p": 0.9,
+                "num_predict": int(os.getenv("OLLAMA_MAX_TOKENS", "300")),
+                "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "4096")),
+            },
+            # Keep the model loaded in RAM between messages so the next guest
+            # doesn't wait for a cold reload. Set "0" to unload immediately.
+            keep_alive=os.getenv("OLLAMA_KEEP_ALIVE", "10m"),
         )
         return (resp["message"]["content"] or "").strip() or None
     except Exception as e:

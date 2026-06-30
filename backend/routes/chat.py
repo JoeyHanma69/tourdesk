@@ -18,12 +18,14 @@ from flask import Blueprint, request, jsonify, render_template, current_app
 
 from backend.utils.message_store import add_message
 from backend.utils.chat import (
-    WELCOME_MESSAGE,
+    WELCOME_MESSAGE, 
+    is_urgent,
     build_automated_reply,
     build_assisted_reply,
     build_escalation_reply,
     build_uncertain_reply,
     build_staff_note,
+    is_urgent,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,7 +69,16 @@ def receive():
         return jsonify({"error": "text field is required"}), 400
 
     # ── Classify ─────────────────────────────────────────────────────────────
-    prediction = current_app.classifier.predict(text)
+    prediction = current_app.classifier.predict(text) 
+    # Safety net: a deterministic keyword check forces urgent/safety messages to
+    # Escalate, even when the ML model misses them. Applied before storing so the
+    # dashboard also shows it flagged as an escalation.
+    if is_urgent(text):
+        logger.warning(f"🚨 URGENT keyword match — forcing Escalate. From {sender}: {text[:80]}")
+        prediction.label = "Escalate"
+        prediction.uncertain = False 
+
+
     add_message(sender, text, prediction)
 
     logger.info(
