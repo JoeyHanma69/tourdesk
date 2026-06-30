@@ -25,8 +25,33 @@ validate. Download the model for full classification.
 import os
 import sys
 
-# Make the project importable no matter where this is run from.
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _find_project_root() -> str:
+    """Locate the tourdesk project so this script can live ANYWHERE.
+
+    Resolution order:
+      1. TOURDESK_ROOT env var (set this if you keep the script outside the repo)
+      2. walk up from this file looking for a backend/utils folder (inside repo)
+      3. fall back to the parent directory
+    """
+    env = os.getenv("TOURDESK_ROOT")
+    if env and os.path.isdir(os.path.join(env, "backend", "utils")):
+        return env
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    d = here
+    for _ in range(8):
+        if os.path.isdir(os.path.join(d, "backend", "utils")):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return os.path.dirname(here)
+
+
+# Make the project importable no matter where this script is placed.
+_PROJECT_ROOT = _find_project_root()
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
