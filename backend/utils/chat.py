@@ -40,6 +40,22 @@ def is_urgent(message: str) -> bool:
     text = (message or "").lower()
     return any(keyword in text for keyword in URGENT_KEYWORDS)
 
+
+def get_command_reply(message: str) -> Optional[str]:
+    """Handle simple slash commands before the normal classifier flow."""
+    text = (message or "").strip()
+    if not text.startswith("/"):
+        return None
+
+    command = text.lower()
+    if command == "/waifu":
+        return (
+            "✨ Here’s a playful waifu-style reply: "
+            "You bring warmth and charm to this chat, and I’m happy to keep you company."
+        )
+    return None
+
+
 def build_automated_reply(original_message: str) -> str:
     """
     Reply for routine ('Automated') questions.

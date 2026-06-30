@@ -99,6 +99,12 @@ def receive():
 
 def _build_reply(sender: str, text: str, prediction) -> str:
     """Pick the right reply for the predicted tier."""
+    from backend.utils.chat import get_command_reply
+
+    command_reply = get_command_reply(text)
+    if command_reply:
+        return command_reply
+
     # Booking enquiries are handled first, with a verify-before-reveal gate,
     # regardless of the classified tier. Returns None if there's no reference.
     booking_reply = build_booking_reply(text)
