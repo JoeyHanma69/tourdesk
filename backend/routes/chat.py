@@ -17,15 +17,8 @@ import uuid
 from flask import Blueprint, request, jsonify, render_template, current_app
 
 from backend.utils.message_store import add_message
-from backend.utils.chat import (
-    WELCOME_MESSAGE,
-    build_booking_reply,
-    build_automated_reply,
-    build_assisted_reply,
-    build_escalation_reply,
-    build_uncertain_reply,
-    build_staff_note,
-)
+from backend.utils.chat import WELCOME_MESSAGE, build_staff_note
+from backend.utils.pipeline import decide
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint("chat", __name__)
@@ -67,8 +60,16 @@ def receive():
     if not text:
         return jsonify({"error": "text field is required"}), 400
 
-    # ── Classify ─────────────────────────────────────────────────────────────
+    # ── Classify + decide ────────────────────────────────────────────────────
+    # The whole handling decision lives in pipeline.decide(), so the web app and
+    # the CLI test harness share identical logic.
     prediction = current_app.classifier.predict(text)
+    decision = decide(prediction, text)
+
+    # Reflect the final tier in the stored record so the dashboard matches the
+    # reply the guest actually received (e.g. an urgent override shows Escalate).
+    prediction.label = decision.final_label
+    prediction.uncertain = decision.uncertain
     add_message(sender, text, prediction)
 
     logger.info(
@@ -81,36 +82,8 @@ def receive():
         logger.warning(build_staff_note(sender, text))
 
     return jsonify({
-        "reply":      reply,
-        "label":      prediction.label,
-        "confidence": prediction.confidence,
-        "uncertain":  prediction.uncertain,
+        "reply":      decision.reply,
+        "label":      decision.final_label,
+        "confidence": decision.confidence,
+        "uncertain":  decision.uncertain,
     })
-
-
-def _build_reply(sender: str, text: str, prediction) -> str:
-    """Pick the right reply for the predicted tier."""
-    # Booking enquiries are handled first, with a verify-before-reveal gate,
-    # regardless of the classified tier. Returns None if there's no reference.
-    booking_reply = build_booking_reply(text)
-    if booking_reply:
-        return booking_reply
-
-    if prediction.uncertain:
-        logger.info(f"⚠️  Low confidence ({prediction.confidence:.0%}) — routed to human review")
-        return build_uncertain_reply(text)
-
-    if prediction.label == "Automated":
-        return build_automated_reply(text)
-
-    if prediction.label == "Assisted":
-        logger.info(f"📋 Assisted: queued for staff review from {sender}")
-        return build_assisted_reply(text)
-
-    if prediction.label == "Escalate":
-        logger.warning(f"🚨 ESCALATION from {sender}: {text[:80]}")
-        logger.warning(build_staff_note(sender, text))
-        return build_escalation_reply(text)
-
-    # Fallback for any unexpected label
-    return build_automated_reply(text)
