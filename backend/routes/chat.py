@@ -26,6 +26,7 @@ from backend.utils.chat import (
     build_uncertain_reply,
     build_staff_note,
 )
+from backend.utils.pipeline import Decision
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint("chat", __name__)
@@ -72,13 +73,16 @@ def receive():
     add_message(sender, text, prediction)
 
     logger.info(
-        f"[{decision.final_label}] {decision.confidence:.0%} | "
+        f"[{Decision.final_label}] {Decision.confidence:.0%} | "
         f"From {sender}: {text[:60]}"
     )
-    if decision.urgent_override:
+    if Decision.urgent_override:
         logger.warning(f"🚨 URGENT keyword match — forced Escalate. From {sender}: {text[:80]}")
-    if decision.final_label == "Escalate":
+    if Decision.final_label == "Escalate":
         logger.warning(build_staff_note(sender, text))
+
+    # Build the assistant reply based on the prediction and message
+    reply = _build_reply(sender, text, prediction)
 
     return jsonify({
         "reply":      reply,
