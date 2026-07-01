@@ -26,7 +26,6 @@ from backend.utils.chat import (
     build_uncertain_reply,
     build_staff_note,
 )
-from backend.utils.pipeline import decide
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint("chat", __name__)
@@ -68,8 +67,16 @@ def receive():
     if not text:
         return jsonify({"error": "text field is required"}), 400
 
-    # ── Classify ─────────────────────────────────────────────────────────────
+    # ── Classify + decide ────────────────────────────────────────────────────
+    # The whole handling decision lives in pipeline.decide(), so the web app and
+    # the CLI test harness share identical logic.
     prediction = current_app.classifier.predict(text)
+    decision = decide(prediction, text)
+
+    # Reflect the final tier in the stored record so the dashboard matches the
+    # reply the guest actually received (e.g. an urgent override shows Escalate).
+    prediction.label = decision.final_label
+    prediction.uncertain = decision.uncertain
     add_message(sender, text, prediction)
 
     decision = decide(prediction, text)
@@ -87,9 +94,9 @@ def receive():
 
     return jsonify({
         "reply":      reply,
-        "label":      decision.final_label,
-        "confidence": decision.confidence,
-        "uncertain":  decision.uncertain,
+        "label":      prediction.label,
+        "confidence": prediction.confidence,
+        "uncertain":  prediction.uncertain,
     })
 
 
