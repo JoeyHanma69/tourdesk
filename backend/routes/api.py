@@ -10,9 +10,27 @@ GET  /api/health          — Model status check
 """
 
 from flask import Blueprint, jsonify, request, current_app
-from backend.utils.message_store import get_all, get_stats, add_message
+from backend.utils.message_store import get_all, get_stats, add_message, add_agent_message
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
+
+
+@api_bp.route("/staff/reply", methods=["POST"])
+def staff_reply():
+    """A TDU staff member replies into a guest's chat.
+
+    Body: { "session_id": "...", "text": "..." }
+    Stores the reply and marks the session as human-handled (the bot goes quiet).
+    The guest's chat picks it up via GET /api/chat/poll.
+    """
+    body = request.get_json(silent=True) or {}
+    session_id = str(body.get("session_id", "")).strip()
+    text = str(body.get("text", "")).strip()
+    if not session_id or not text:
+        return jsonify({"error": "session_id and text are required"}), 400
+
+    record = add_agent_message(session_id, text)
+    return jsonify(record)
 
 
 @api_bp.route("/messages", methods=["GET"])

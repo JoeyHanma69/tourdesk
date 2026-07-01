@@ -11,6 +11,8 @@ const input    = document.getElementById("chat-input");
 const sendBtn  = document.getElementById("chat-send");
 
 let sessionId = null;
+let lastAgentId = 0;          // highest staff-reply id we've shown
+const POLL_MS = 3000;         // how often we check for staff replies
 
 // ── Render helpers ────────────────────────────────────────────────────────────
 function addBubble(text, who) {
@@ -57,7 +59,11 @@ async function sendMessage(text) {
     });
     const data = await res.json();
     typing.remove();
-    addBubble(data.reply || "Sorry, something went wrong. Please try again.", "bot");
+    // When a human has taken over, the bot stays silent — their reply arrives
+    // via polling instead. Otherwise show the bot's reply.
+    if (!data.handled) {
+      addBubble(data.reply || "Sorry, something went wrong. Please try again.", "bot");
+    }
   } catch (_) {
     typing.remove();
     addBubble("⚠️ Couldn't reach our team right now. Please try again shortly.", "bot");
@@ -81,4 +87,18 @@ form.addEventListener("submit", e => {
   sendMessage(text);
 });
 
+// ── Poll for staff replies ────────────────────────────────────────────────────
+async function pollForStaffReplies() {
+  if (!sessionId) return;
+  try {
+    const res  = await fetch(`/api/chat/poll?session_id=${sessionId}&after=${lastAgentId}`);
+    const data = await res.json();
+    (data.messages || []).forEach(m => {
+      addBubble(m.text, "agent");
+      if (m.id > lastAgentId) lastAgentId = m.id;
+    });
+  } catch (_) {}
+}
+
 initConversation();
+setInterval(pollForStaffReplies, POLL_MS);

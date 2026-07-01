@@ -92,6 +92,24 @@
   border-bottom-right-radius: 5px;
   box-shadow: 0 4px 12px rgba(26,107,107,0.30);
 }
+/* A real TDU staff member's reply — visually distinct from the bot */
+.bubble-agent {
+  align-self: flex-start;
+  background: #FFF6E9;
+  color: #7A4B12;
+  border: 1px solid #F1D9B4;
+  border-bottom-left-radius: 5px;
+  box-shadow: 0 2px 6px rgba(122,75,18,0.10);
+}
+.bubble-agent::before {
+  content: "👩‍💼 TDU Team";
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #B45309;
+  margin-bottom: 3px;
+}
 
 /* Typing indicator */
 .bubble-typing { display: flex; gap: 4px; align-items: center; }

@@ -9,6 +9,7 @@
 const POLL_INTERVAL = 5000; // ms
 let   currentFilter = "all";
 let   lastMessageId = 0;
+let   selectedSession = null;   // which guest the staff reply bar targets
 
 // Estimated staff handling time saved per auto-resolved message (minutes).
 // Used only for the "Staff time saved (est.)" impact metric.
@@ -121,7 +122,7 @@ function renderFeed(messages) {
       : "";
 
     return `
-      <div class="msg-item tier-${m.label}">
+      <div class="msg-item tier-${m.label}" data-session="${escapeHtml(m.sender)}">
         <div class="msg-tier">
           <span class="tier-badge badge-${m.uncertain ? "uncertain" : m.label}">
             ${m.uncertain ? "?" : m.label}
@@ -138,6 +139,13 @@ function renderFeed(messages) {
         </div>
       </div>`;
   }).join("");
+
+  // Re-apply the selection highlight after each refresh rebuilds the feed.
+  if (selectedSession) {
+    feed.querySelectorAll(".msg-item").forEach(el => {
+      if (el.dataset.session === selectedSession) el.classList.add("selected");
+    });
+  }
 }
 
 function escapeHtml(str) {
@@ -226,6 +234,49 @@ function renderTestResult(data) {
   }
 
   testResult.classList.remove("hidden");
+}
+
+// ── Live agent handoff: staff reply ────────────────────────────────────────────
+const replyTarget = document.getElementById("reply-target");
+const replyForm   = document.getElementById("reply-form");
+const replyInput  = document.getElementById("reply-input");
+const replySend   = document.getElementById("reply-send");
+
+// Click a guest message to select that conversation.
+document.getElementById("message-feed").addEventListener("click", e => {
+  const item = e.target.closest(".msg-item");
+  if (!item) return;
+  selectedSession = item.dataset.session;
+  document.querySelectorAll(".msg-item.selected").forEach(el => el.classList.remove("selected"));
+  item.classList.add("selected");
+  replyTarget.innerHTML = `Replying to <strong>${escapeHtml(selectedSession)}</strong>`;
+  replyInput.disabled = false;
+  replySend.disabled  = false;
+  replyInput.focus();
+});
+
+// Send the staff reply into the guest's chat.
+if (replyForm) {
+  replyForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    const text = replyInput.value.trim();
+    if (!text || !selectedSession) return;
+    replySend.disabled = true;
+    try {
+      await fetch("/api/staff/reply", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ session_id: selectedSession, text }),
+      });
+      replyInput.value = "";
+      replyTarget.innerHTML = `✅ Sent to <strong>${escapeHtml(selectedSession)}</strong> — they'll see it in their chat.`;
+    } catch (_) {
+      replyTarget.textContent = "⚠️ Couldn't send — please try again.";
+    } finally {
+      replySend.disabled = false;
+      replyInput.focus();
+    }
+  });
 }
 
 // ── Polling loop ──────────────────────────────────────────────────────────────

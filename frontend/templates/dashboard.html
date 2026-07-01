@@ -102,6 +102,16 @@
         <div id="message-feed" class="message-feed">
           <div class="empty-state">No messages yet. Waiting for chatbot messages…</div>
         </div>
+
+        <!-- ── Staff reply bar (live agent handoff) ── -->
+        <div class="reply-bar">
+          <div class="reply-target" id="reply-target">💬 Click a guest message above to reply to them directly.</div>
+          <form id="reply-form" class="reply-form">
+            <input id="reply-input" class="reply-input" type="text"
+                   placeholder="Type a reply to the guest…" autocomplete="off" disabled />
+            <button id="reply-send" class="btn btn-primary" type="submit" disabled>Send</button>
+          </form>
+        </div>
       </section>
 
       <!-- ── Right: test panel ── -->
