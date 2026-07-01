@@ -21,6 +21,9 @@ ml_classifier/model/
 *.csv
 !ml_classifier/sample_messages.csv
 
+# Runtime user uploads (created by the app; not source) — never commit these
+frontend/static/uploads/
+
 # OS
 .DS_Store
 Thumbs.db
