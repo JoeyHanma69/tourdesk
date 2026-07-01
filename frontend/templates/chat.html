@@ -28,7 +28,10 @@
       <div id="chat-thread" class="chat-thread" aria-live="polite"></div>
 
       <!-- ── Composer ── -->
+      <div id="chat-attach-preview" class="chat-attach-preview hidden"></div>
       <form id="chat-form" class="chat-composer">
+        <button id="chat-attach" class="chat-attach" type="button" title="Attach a file or image">📎</button>
+        <input id="chat-file" type="file" accept="image/*,.pdf,.doc,.docx,.txt" hidden />
         <input
           id="chat-input"
           class="chat-input"

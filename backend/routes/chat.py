@@ -3,9 +3,11 @@ backend/routes/chat.py
 ======================
 The TourDesk web chatbot.
 
-GET  /chat       — Serves the guest-facing chat page (the chatbot widget).
-POST /api/chat   — A guest message from the chatbot. We classify it, store it,
-                   and return the assistant's reply in the same response.
+GET  /chat            — Serves the guest-facing chat page (the chatbot widget).
+POST /api/chat        — A guest message from the chatbot. We classify it, store
+                        it, and return the assistant's reply in the same response.
+GET  /api/chat/poll    — Polled by the chat widget to pick up staff replies sent
+                        from the dashboard (those aren't returned synchronously).
 
 Conversations start inside our own TDU web application — no external
 messaging provider is involved.
@@ -16,7 +18,7 @@ import uuid
 
 from flask import Blueprint, request, jsonify, render_template, current_app
 
-from backend.utils.message_store import add_message
+from backend.utils.message_store import add_message, get_staff_replies_since
 from backend.utils.chat import (
     WELCOME_MESSAGE,
     build_booking_reply,
@@ -64,21 +66,23 @@ def receive():
     body = request.get_json(silent=True) or {}
     text = str(body.get("text", "")).strip()
     sender = str(body.get("session_id", "")).strip() or "guest"
+    attachment = body.get("attachment")
 
-    if not text:
+    if not text and not attachment:
         return jsonify({"error": "text field is required"}), 400
 
     # ── Classify + decide ────────────────────────────────────────────────────
     # The whole handling decision lives in pipeline.decide(), so the web app and
-    # the CLI test harness share identical logic.
-    prediction = current_app.classifier.predict(text)
+    # the CLI test harness share identical logic. An attachment-only message
+    # (e.g. a guest just sends a photo) still needs some text to classify.
+    prediction = current_app.classifier.predict(text or "[attachment]")
     decision = decide(prediction, text)
 
     # Reflect the final tier in the stored record so the dashboard matches the
     # reply the guest actually received (e.g. an urgent override shows Escalate).
     prediction.label = decision.final_label
     prediction.uncertain = decision.uncertain
-    add_message(sender, text, prediction)
+    add_message(sender, text, prediction, attachment=attachment)
 
     logger.info(
         f"[{decision.final_label}] {decision.confidence:.0%} | "
@@ -98,6 +102,26 @@ def receive():
         "confidence": prediction.confidence,
         "uncertain":  prediction.uncertain,
     })
+
+
+# ── GET /api/chat/poll — pick up staff replies ───────────────────────────────
+@chat_bp.route("/api/chat/poll", methods=["GET"])
+def poll():
+    """
+    Polled by the chat widget every few seconds to pick up replies staff sent
+    from the dashboard — those are delivered asynchronously, not in the
+    response to /api/chat.
+
+    Query: ?session_id=...&since_id=0
+    Returns: [ { id, text, attachment, timestamp, ... }, ... ]  (oldest first)
+    """
+    session_id = str(request.args.get("session_id", "")).strip()
+    since_id = int(request.args.get("since_id", 0) or 0)
+
+    if not session_id:
+        return jsonify([])
+
+    return jsonify(get_staff_replies_since(session_id, since_id))
 
 
 def _build_reply(sender: str, text: str, prediction) -> str:

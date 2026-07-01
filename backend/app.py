@@ -42,6 +42,7 @@ def create_app():
     app.config["SECRET_KEY"]           = os.getenv("SECRET_KEY", "dev-secret-change-me")
     app.config["MODEL_DIR"]            = os.getenv("MODEL_DIR", "ml_classifier/model")
     app.config["CONFIDENCE_THRESHOLD"] = float(os.getenv("CONFIDENCE_THRESHOLD", "0.65"))
+    app.config["MAX_CONTENT_LENGTH"]   = 10 * 1024 * 1024  # 10 MB upload cap
 
     # Boot the classifier once at startup (not per-request)
     app.classifier = TourDeskClassifier(

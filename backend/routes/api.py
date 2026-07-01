@@ -7,10 +7,13 @@ GET  /api/messages        — All stored messages (newest first)
 GET  /api/stats           — Counts per tier + uncertainty
 POST /api/classify        — Manually test a message
 GET  /api/health          — Model status check
+POST /api/upload          — Upload a file/image attachment
+POST /api/messages/reply  — Staff reply to a client, sent from the dashboard
 """
 
 from flask import Blueprint, jsonify, request, current_app
-from backend.utils.message_store import get_all, get_stats, add_message
+from backend.utils.message_store import get_all, get_stats, add_message, add_staff_reply
+from backend.utils.uploads import save_upload, InvalidUpload
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -70,3 +73,46 @@ def health():
         "model_dir":    current_app.config.get("MODEL_DIR"),
         "threshold":    current_app.config.get("CONFIDENCE_THRESHOLD"),
     })
+
+
+@api_bp.route("/upload", methods=["POST"])
+def upload():
+    """
+    Upload a file/image attachment — used by both the guest chat composer
+    and the staff reply box on the dashboard.
+
+    multipart/form-data with a "file" field.
+    Returns: { "url": "...", "filename": "...", "mime": "...", "is_image": .. }
+    """
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"error": "file field is required"}), 400
+
+    try:
+        result = save_upload(file)
+    except InvalidUpload as e:
+        return jsonify({"error": str(e)}), 400
+
+    return jsonify(result)
+
+
+@api_bp.route("/messages/reply", methods=["POST"])
+def reply():
+    """
+    Staff reply to a client, sent from the dashboard. Delivered to the
+    guest's chat window the next time it polls /api/chat/poll.
+
+    Body: { "session_id": "...", "text": "...", "attachment": {...} (optional) }
+    """
+    body = request.get_json(silent=True) or {}
+    session_id = str(body.get("session_id", "")).strip()
+    text = str(body.get("text", "")).strip()
+    attachment = body.get("attachment")
+
+    if not session_id:
+        return jsonify({"error": "session_id is required"}), 400
+    if not text and not attachment:
+        return jsonify({"error": "text or attachment is required"}), 400
+
+    record = add_staff_reply(session_id, text, attachment=attachment)
+    return jsonify(record)

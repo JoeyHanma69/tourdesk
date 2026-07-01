@@ -114,7 +114,26 @@ function renderFeed(messages) {
   }
 
   feed.innerHTML = messages.map(m => {
-    const time     = new Date(m.timestamp).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" });
+    const time = new Date(m.timestamp).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" });
+    const attachmentHtml = renderAttachment(m.attachment);
+
+    if (m.from_staff) {
+      return `
+        <div class="msg-item msg-item-staff">
+          <div class="msg-tier">
+            <span class="tier-badge badge-staff">Staff</span>
+          </div>
+          <div class="msg-body">
+            <div class="msg-text">${escapeHtml(m.text)}</div>
+            ${attachmentHtml}
+            <div class="msg-meta">
+              <span class="msg-sender">→ ${escapeHtml(m.sender)}</span>
+              <span class="msg-time">${time}</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
     const confPct  = (m.confidence * 100).toFixed(0) + "%";
     const uncertain = m.uncertain
       ? '<span class="uncertain-tag">⚠ uncertain</span>'
@@ -129,15 +148,25 @@ function renderFeed(messages) {
         </div>
         <div class="msg-body">
           <div class="msg-text">${escapeHtml(m.text)}</div>
+          ${attachmentHtml}
           <div class="msg-meta">
             <span class="msg-sender">📱 ${escapeHtml(m.sender)}</span>
             <span class="msg-time">${time}</span>
             <span class="msg-conf">${confPct}</span>
             ${uncertain}
+            <button class="msg-reply-btn" type="button" data-sender="${escapeHtml(m.sender)}">↩ Reply</button>
           </div>
         </div>
       </div>`;
   }).join("");
+}
+
+function renderAttachment(attachment) {
+  if (!attachment) return "";
+  if (attachment.is_image) {
+    return `<img class="bubble-attachment-img" src="${escapeHtml(attachment.url)}" alt="${escapeHtml(attachment.filename || "attachment")}" />`;
+  }
+  return `<a class="bubble-attachment-file" href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener noreferrer">📄 ${escapeHtml(attachment.filename || "attachment")}</a>`;
 }
 
 function escapeHtml(str) {
@@ -226,6 +255,124 @@ function renderTestResult(data) {
   }
 
   testResult.classList.remove("hidden");
+}
+
+// ── Reply composer ────────────────────────────────────────────────────────────
+// Lives outside the polled #message-feed so an in-progress draft survives
+// the next auto-refresh.
+const replyComposer    = document.getElementById("reply-composer");
+const replyTargetName  = document.getElementById("reply-target-name");
+const replyInput       = document.getElementById("reply-input");
+const replySendBtn     = document.getElementById("reply-send");
+const replyCancelBtn   = document.getElementById("reply-cancel");
+const replyAttachBtn   = document.getElementById("reply-attach-btn");
+const replyFileInput   = document.getElementById("reply-file");
+const replyAttachPreview = document.getElementById("reply-attach-preview");
+
+let replyTarget = null;          // sender/session_id currently replying to
+let replyAttachment = null;      // { url, filename, mime, is_image }
+
+document.getElementById("message-feed").addEventListener("click", e => {
+  const btn = e.target.closest(".msg-reply-btn");
+  if (!btn) return;
+  openReplyComposer(btn.dataset.sender);
+});
+
+function openReplyComposer(sender) {
+  replyTarget = sender;
+  replyTargetName.textContent = sender;
+  replyComposer.classList.remove("hidden");
+  replyInput.focus();
+}
+
+replyCancelBtn.addEventListener("click", closeReplyComposer);
+
+function closeReplyComposer() {
+  replyTarget = null;
+  replyAttachment = null;
+  replyInput.value = "";
+  renderReplyAttachPreview();
+  replyComposer.classList.add("hidden");
+}
+
+replyAttachBtn.addEventListener("click", () => replyFileInput.click());
+
+replyFileInput.addEventListener("change", async () => {
+  const file = replyFileInput.files[0];
+  replyFileInput.value = "";
+  if (!file) return;
+
+  replyAttachBtn.disabled = true;
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res  = await fetch("/api/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Upload failed");
+      return;
+    }
+    replyAttachment = data;
+    renderReplyAttachPreview();
+  } catch (e) {
+    alert("Upload failed: " + e.message);
+  } finally {
+    replyAttachBtn.disabled = false;
+  }
+});
+
+function renderReplyAttachPreview() {
+  if (!replyAttachment) {
+    replyAttachPreview.classList.add("hidden");
+    replyAttachPreview.innerHTML = "";
+    return;
+  }
+  replyAttachPreview.classList.remove("hidden");
+  replyAttachPreview.innerHTML = "";
+
+  const label = document.createElement("span");
+  label.textContent = "📎 " + replyAttachment.filename;
+  replyAttachPreview.appendChild(label);
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "chat-attach-remove";
+  remove.textContent = "✕";
+  remove.addEventListener("click", () => {
+    replyAttachment = null;
+    renderReplyAttachPreview();
+  });
+  replyAttachPreview.appendChild(remove);
+}
+
+replySendBtn.addEventListener("click", sendReply);
+replyInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.ctrlKey) sendReply();
+});
+
+async function sendReply() {
+  const text = replyInput.value.trim();
+  if (!replyTarget || (!text && !replyAttachment)) return;
+
+  replySendBtn.disabled = true;
+  try {
+    const res = await fetch("/api/messages/reply", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ session_id: replyTarget, text, attachment: replyAttachment }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to send reply");
+      return;
+    }
+    closeReplyComposer();
+    refreshMessages();
+  } catch (e) {
+    alert("Failed to send reply: " + e.message);
+  } finally {
+    replySendBtn.disabled = false;
+  }
 }
 
 // ── Polling loop ──────────────────────────────────────────────────────────────

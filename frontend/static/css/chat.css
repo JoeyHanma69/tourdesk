@@ -144,3 +144,53 @@
 }
 .chat-send:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(26,107,107,0.40); }
 .chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Attachments ── */
+.chat-attach {
+  border: 1px solid var(--grey-200);
+  background: var(--white);
+  border-radius: 50%;
+  width: 40px; height: 40px;
+  flex-shrink: 0;
+  font-size: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.chat-attach:hover:not(:disabled) { border-color: var(--teal); transform: translateY(-1px); }
+.chat-attach:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.chat-attach-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--grey-50);
+  border: 1px solid var(--grey-200);
+  font-size: 12px;
+  color: var(--grey-700);
+}
+.chat-attach-remove {
+  border: none;
+  background: none;
+  color: var(--grey-400);
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: auto;
+}
+.chat-attach-remove:hover { color: var(--escalate); }
+
+.bubble-attachment-img {
+  display: block;
+  max-width: 100%;
+  border-radius: 10px;
+  margin-top: 6px;
+}
+.bubble-attachment-file {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: inherit;
+  text-decoration: underline;
+}
