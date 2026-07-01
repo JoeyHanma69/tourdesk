@@ -26,6 +26,7 @@ from backend.utils.chat import (
     build_uncertain_reply,
     build_staff_note,
 )
+from backend.utils.pipeline import decide
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint("chat", __name__)
@@ -79,7 +80,6 @@ def receive():
     prediction.uncertain = decision.uncertain
     add_message(sender, text, prediction)
 
-    decision = decide(prediction, text)
     logger.info(
         f"[{decision.final_label}] {decision.confidence:.0%} | "
         f"From {sender}: {text[:60]}"
