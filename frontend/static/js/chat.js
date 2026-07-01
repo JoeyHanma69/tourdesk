@@ -6,12 +6,19 @@
  * the dashboard show up here without a page reload.
  */
 
-const thread   = document.getElementById("chat-thread");
-const form     = document.getElementById("chat-form");
-const input    = document.getElementById("chat-input");
-const sendBtn  = document.getElementById("chat-send");
+const thread       = document.getElementById("chat-thread");
+const form         = document.getElementById("chat-form");
+const input        = document.getElementById("chat-input");
+const sendBtn      = document.getElementById("chat-send");
+const attachBtn     = document.getElementById("chat-attach");
+const fileInput     = document.getElementById("chat-file");
+const attachPreview = document.getElementById("chat-attach-preview");
 
-let sessionId = null;
+const POLL_INTERVAL = 4000; // ms
+
+let sessionId    = null;
+let lastStaffId  = 0;
+let pendingAttachment = null; // { url, filename, mime, is_image }
 
 // ── Render helpers ────────────────────────────────────────────────────────────
 function addBubble(text, who, attachment) {
@@ -87,11 +94,7 @@ async function sendMessage(text) {
     });
     const data = await res.json();
     typing.remove();
-    // When a human has taken over, the bot stays silent — their reply arrives
-    // via polling instead. Otherwise show the bot's reply.
-    if (!data.handled) {
-      addBubble(data.reply || "Sorry, something went wrong. Please try again.", "bot");
-    }
+    addBubble(data.reply || "Sorry, something went wrong. Please try again.", "bot");
   } catch (_) {
     typing.remove();
     addBubble("⚠️ Couldn't reach our team right now. Please try again shortly.", "bot");
@@ -168,5 +171,19 @@ form.addEventListener("submit", e => {
   sendMessage(text);
 });
 
+// ── Poll for staff replies sent from the dashboard ─────────────────────────────
+function startPolling() {
+  setInterval(async () => {
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`/api/chat/poll?session_id=${encodeURIComponent(sessionId)}&since_id=${lastStaffId}`);
+      const replies = await res.json();
+      replies.forEach(m => {
+        lastStaffId = Math.max(lastStaffId, m.id);
+        addBubble(m.text, "bot", m.attachment);
+      });
+    } catch (_) {}
+  }, POLL_INTERVAL);
+}
+
 initConversation();
-setInterval(pollForStaffReplies, POLL_MS);

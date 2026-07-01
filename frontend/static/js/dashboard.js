@@ -9,7 +9,6 @@
 const POLL_INTERVAL = 5000; // ms
 let   currentFilter = "all";
 let   lastMessageId = 0;
-let   selectedSession = null;   // which guest the staff reply bar targets
 
 // Estimated staff handling time saved per auto-resolved message (minutes).
 // Used only for the "Staff time saved (est.)" impact metric.
@@ -141,7 +140,7 @@ function renderFeed(messages) {
       : "";
 
     return `
-      <div class="msg-item tier-${m.label}" data-session="${escapeHtml(m.sender)}">
+      <div class="msg-item tier-${m.label}">
         <div class="msg-tier">
           <span class="tier-badge badge-${m.uncertain ? "uncertain" : m.label}">
             ${m.uncertain ? "?" : m.label}
@@ -160,13 +159,6 @@ function renderFeed(messages) {
         </div>
       </div>`;
   }).join("");
-
-  // Re-apply the selection highlight after each refresh rebuilds the feed.
-  if (selectedSession) {
-    feed.querySelectorAll(".msg-item").forEach(el => {
-      if (el.dataset.session === selectedSession) el.classList.add("selected");
-    });
-  }
 }
 
 function renderAttachment(attachment) {
@@ -263,6 +255,124 @@ function renderTestResult(data) {
   }
 
   testResult.classList.remove("hidden");
+}
+
+// ── Reply composer ────────────────────────────────────────────────────────────
+// Lives outside the polled #message-feed so an in-progress draft survives
+// the next auto-refresh.
+const replyComposer    = document.getElementById("reply-composer");
+const replyTargetName  = document.getElementById("reply-target-name");
+const replyInput       = document.getElementById("reply-input");
+const replySendBtn     = document.getElementById("reply-send");
+const replyCancelBtn   = document.getElementById("reply-cancel");
+const replyAttachBtn   = document.getElementById("reply-attach-btn");
+const replyFileInput   = document.getElementById("reply-file");
+const replyAttachPreview = document.getElementById("reply-attach-preview");
+
+let replyTarget = null;          // sender/session_id currently replying to
+let replyAttachment = null;      // { url, filename, mime, is_image }
+
+document.getElementById("message-feed").addEventListener("click", e => {
+  const btn = e.target.closest(".msg-reply-btn");
+  if (!btn) return;
+  openReplyComposer(btn.dataset.sender);
+});
+
+function openReplyComposer(sender) {
+  replyTarget = sender;
+  replyTargetName.textContent = sender;
+  replyComposer.classList.remove("hidden");
+  replyInput.focus();
+}
+
+replyCancelBtn.addEventListener("click", closeReplyComposer);
+
+function closeReplyComposer() {
+  replyTarget = null;
+  replyAttachment = null;
+  replyInput.value = "";
+  renderReplyAttachPreview();
+  replyComposer.classList.add("hidden");
+}
+
+replyAttachBtn.addEventListener("click", () => replyFileInput.click());
+
+replyFileInput.addEventListener("change", async () => {
+  const file = replyFileInput.files[0];
+  replyFileInput.value = "";
+  if (!file) return;
+
+  replyAttachBtn.disabled = true;
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res  = await fetch("/api/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Upload failed");
+      return;
+    }
+    replyAttachment = data;
+    renderReplyAttachPreview();
+  } catch (e) {
+    alert("Upload failed: " + e.message);
+  } finally {
+    replyAttachBtn.disabled = false;
+  }
+});
+
+function renderReplyAttachPreview() {
+  if (!replyAttachment) {
+    replyAttachPreview.classList.add("hidden");
+    replyAttachPreview.innerHTML = "";
+    return;
+  }
+  replyAttachPreview.classList.remove("hidden");
+  replyAttachPreview.innerHTML = "";
+
+  const label = document.createElement("span");
+  label.textContent = "📎 " + replyAttachment.filename;
+  replyAttachPreview.appendChild(label);
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "chat-attach-remove";
+  remove.textContent = "✕";
+  remove.addEventListener("click", () => {
+    replyAttachment = null;
+    renderReplyAttachPreview();
+  });
+  replyAttachPreview.appendChild(remove);
+}
+
+replySendBtn.addEventListener("click", sendReply);
+replyInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.ctrlKey) sendReply();
+});
+
+async function sendReply() {
+  const text = replyInput.value.trim();
+  if (!replyTarget || (!text && !replyAttachment)) return;
+
+  replySendBtn.disabled = true;
+  try {
+    const res = await fetch("/api/messages/reply", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ session_id: replyTarget, text, attachment: replyAttachment }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Failed to send reply");
+      return;
+    }
+    closeReplyComposer();
+    refreshMessages();
+  } catch (e) {
+    alert("Failed to send reply: " + e.message);
+  } finally {
+    replySendBtn.disabled = false;
+  }
 }
 
 // ── Polling loop ──────────────────────────────────────────────────────────────

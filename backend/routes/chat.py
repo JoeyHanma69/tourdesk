@@ -3,9 +3,11 @@ backend/routes/chat.py
 ======================
 The TourDesk web chatbot.
 
-GET  /chat       — Serves the guest-facing chat page (the chatbot widget).
-POST /api/chat   — A guest message from the chatbot. We classify it, store it,
-                   and return the assistant's reply in the same response.
+GET  /chat            — Serves the guest-facing chat page (the chatbot widget).
+POST /api/chat        — A guest message from the chatbot. We classify it, store
+                        it, and return the assistant's reply in the same response.
+GET  /api/chat/poll    — Polled by the chat widget to pick up staff replies sent
+                        from the dashboard (those aren't returned synchronously).
 
 Conversations start inside our own TDU web application — no external
 messaging provider is involved.
@@ -16,7 +18,7 @@ import uuid
 
 from flask import Blueprint, request, jsonify, render_template, current_app
 
-from backend.utils.message_store import add_message
+from backend.utils.message_store import add_message, get_staff_replies_since
 from backend.utils.chat import (
     WELCOME_MESSAGE,
     build_booking_reply,
@@ -26,6 +28,7 @@ from backend.utils.chat import (
     build_uncertain_reply,
     build_staff_note,
 )
+from backend.utils.pipeline import decide
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint("chat", __name__)
@@ -41,7 +44,10 @@ def chat_page():
 # ── GET /api/chat/welcome — opening message ──────────────────────────────────
 @chat_bp.route("/api/chat/welcome", methods=["GET"])
 def welcome():
-    """Start a conversation: return a fresh session id and the greeting."""
+    """
+    Called when the chatbot first opens to start the conversation.
+    Returns a fresh session id and the assistant's greeting.
+    """
     return jsonify({
         "session_id": uuid.uuid4().hex,
         "reply": WELCOME_MESSAGE,
@@ -54,8 +60,8 @@ def receive():
     """
     Handle one message from the chatbot.
 
-    Body: { "text": "...", "session_id": "..." (optional) }
-    Returns: { "reply": ..., "handled": bool, "label": ..., "confidence": .., "uncertain": .. }
+    Body: { "text": "...", "session_id": "..." (optional), "attachment": {...} (optional) }
+    Returns: { "reply": "...", "label": "...", "confidence": .., "uncertain": .. }
     """
     body = request.get_json(silent=True) or {}
     text = str(body.get("text", "")).strip()
@@ -87,23 +93,14 @@ def receive():
     if decision.final_label == "Escalate":
         logger.warning(build_staff_note(sender, text))
 
-    # If a human has taken over this conversation, the bot stays silent — the
-    # guest's message still lands on the dashboard, and staff reply directly.
-    if is_handled(sender):
-        return jsonify({
-            "reply":      None,
-            "handled":    True,
-            "label":      decision.final_label,
-            "confidence": decision.confidence,
-            "uncertain":  decision.uncertain,
-        })
+    # Build the assistant reply based on the prediction and message
+    reply = decision.reply
 
     return jsonify({
-        "reply":      decision.reply,
-        "handled":    False,
-        "label":      decision.final_label,
-        "confidence": decision.confidence,
-        "uncertain":  decision.uncertain,
+        "reply":      reply,
+        "label":      prediction.label,
+        "confidence": prediction.confidence,
+        "uncertain":  prediction.uncertain,
     })
 
 
@@ -127,16 +124,29 @@ def poll():
     return jsonify(get_staff_replies_since(session_id, since_id))
 
 
-# ── GET /api/chat/poll — guest fetches new staff replies ─────────────────────
-@chat_bp.route("/api/chat/poll", methods=["GET"])
-def poll():
-    """The guest chat polls this for any new staff replies to its session."""
-    session_id = request.args.get("session_id", "").strip()
-    after = request.args.get("after", "0")
-    try:
-        after_id = int(after)
-    except ValueError:
-        after_id = 0
-    if not session_id:
-        return jsonify({"messages": []})
-    return jsonify({"messages": get_agent_messages(session_id, after_id)})
+def _build_reply(sender: str, text: str, prediction) -> str:
+    """Pick the right reply for the predicted tier."""
+    # Booking enquiries are handled first, with a verify-before-reveal gate,
+    # regardless of the classified tier. Returns None if there's no reference.
+    booking_reply = build_booking_reply(text)
+    if booking_reply:
+        return booking_reply
+
+    if prediction.uncertain:
+        logger.info(f"⚠️  Low confidence ({prediction.confidence:.0%}) — routed to human review")
+        return build_uncertain_reply(text)
+
+    if prediction.label == "Automated":
+        return build_automated_reply(text)
+
+    if prediction.label == "Assisted":
+        logger.info(f"📋 Assisted: queued for staff review from {sender}")
+        return build_assisted_reply(text)
+
+    if prediction.label == "Escalate":
+        logger.warning(f"🚨 ESCALATION from {sender}: {text[:80]}")
+        logger.warning(build_staff_note(sender, text))
+        return build_escalation_reply(text)
+
+    # Fallback for any unexpected label
+    return build_automated_reply(text)
