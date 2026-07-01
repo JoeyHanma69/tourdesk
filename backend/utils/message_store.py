@@ -14,6 +14,14 @@ _lock = threading.Lock()
 # Stores last 500 messages in memory
 _messages = deque(maxlen=500)
 
+# ── Live agent handoff ────────────────────────────────────────────────────────
+# Staff -> guest replies, and the set of sessions a human has taken over. When a
+# session is "handled", the bot stops auto-replying and the guest's chat polls
+# for these agent messages. In production, back this with a database too.
+_agent_messages = deque(maxlen=500)
+_handled = set()
+_agent_seq = 0
+
 # Monotonically increasing id, independent of the deque's length so ids stay
 # unique even after old messages fall off the 500-message window (the poll
 # endpoint relies on ids only ever increasing).
@@ -69,6 +77,38 @@ def add_staff_reply(session_id: str, text: str, attachment=None) -> dict:
 def get_all() -> list:
     with _lock:
         return list(_messages)
+
+
+# ── Live agent handoff helpers ────────────────────────────────────────────────
+def add_agent_message(session_id: str, text: str) -> dict:
+    """Store a staff reply for a guest session and mark the session as handled
+    (so the bot stops auto-replying). Returns the stored record."""
+    global _agent_seq
+    with _lock:
+        _agent_seq += 1
+        record = {
+            "id":         _agent_seq,
+            "timestamp":  datetime.now().isoformat(),
+            "session_id": session_id,
+            "text":       text,
+            "from":       "agent",
+        }
+        _agent_messages.append(record)
+        _handled.add(session_id)
+    return record
+
+
+def get_agent_messages(session_id: str, after_id: int = 0) -> list:
+    """Return staff replies for a session newer than after_id (oldest first)."""
+    with _lock:
+        return [m for m in _agent_messages
+                if m["session_id"] == session_id and m["id"] > after_id]
+
+
+def is_handled(session_id: str) -> bool:
+    """True if a human has taken over this session."""
+    with _lock:
+        return session_id in _handled
 
 
 def get_staff_replies_since(session_id: str, since_id: int) -> list:

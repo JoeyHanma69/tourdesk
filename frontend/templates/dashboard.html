@@ -102,22 +102,6 @@
         <div id="message-feed" class="message-feed">
           <div class="empty-state">No messages yet. Waiting for chatbot messages…</div>
         </div>
-
-        <!-- Reply composer — sits outside the polled feed so a draft in
-             progress doesn't get wiped out by the next auto-refresh. -->
-        <div id="reply-composer" class="reply-composer hidden">
-          <div class="reply-target">
-            Replying to <strong id="reply-target-name"></strong>
-            <button id="reply-cancel" type="button" class="reply-cancel" title="Cancel reply">✕</button>
-          </div>
-          <div id="reply-attach-preview" class="chat-attach-preview hidden"></div>
-          <div class="reply-input-row">
-            <button id="reply-attach-btn" class="chat-attach" type="button" title="Attach a file or image">📎</button>
-            <input id="reply-file" type="file" accept="image/*,.pdf,.doc,.docx,.txt" hidden />
-            <textarea id="reply-input" rows="2" placeholder="Type a reply to the client…"></textarea>
-            <button id="reply-send" class="btn btn-primary reply-send-btn" type="button">Send</button>
-          </div>
-        </div>
       </section>
 
       <!-- ── Right: test panel ── -->
