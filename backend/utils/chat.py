@@ -56,6 +56,28 @@ def get_command_reply(message: str) -> Optional[str]:
     return None
 
 
+# ── Safety net ───────────────────────────────────────────────────────────────
+# Deterministic override for urgent / safety-critical messages. The ML model
+# misses some of these (its Escalate recall is ~0.69), and you should never rely
+# on a model alone for safety — so any message containing one of these phrases is
+# forced to the Escalate tier regardless of what the classifier predicted.
+URGENT_KEYWORDS = (
+    "injured", "injury", "hurt", "bleeding", "blood", "wound",
+    "emergency", "accident", "ambulance", "paramedic", "hospital",
+    "drowning", "drown", "can't breathe", "cant breathe", "choking",
+    "unconscious", "collapsed", "heart attack", "stroke", "seizure",
+    "allergic", "anaphylaxis", "overdose", "stung", "bitten", "snake",
+    "stranded", "lost at sea", "sinking", "capsized", "overboard",
+    "danger", "dangerous", "urgent", "help me", "rescue", "missing",
+)
+
+
+def is_urgent(message: str) -> bool:
+    """True if the message contains a safety/emergency phrase."""
+    text = (message or "").lower()
+    return any(keyword in text for keyword in URGENT_KEYWORDS)
+
+
 def build_automated_reply(original_message: str) -> str:
     """
     Reply for routine ('Automated') questions.

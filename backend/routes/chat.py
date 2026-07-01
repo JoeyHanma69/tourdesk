@@ -19,7 +19,6 @@ from flask import Blueprint, request, jsonify, render_template, current_app
 from backend.utils.message_store import add_message
 from backend.utils.chat import (
     WELCOME_MESSAGE,
-    is_urgent,
     build_booking_reply,
     build_automated_reply,
     build_assisted_reply,
@@ -69,25 +68,17 @@ def receive():
         return jsonify({"error": "text field is required"}), 400
 
     # ── Classify ─────────────────────────────────────────────────────────────
-    prediction = current_app.classifier.predict(text) 
-    # Safety net: a deterministic keyword check forces urgent/safety messages to
-    # Escalate, even when the ML model misses them. Applied before storing so the
-    # dashboard also shows it flagged as an escalation.
-    if is_urgent(text):
-        logger.warning(f"🚨 URGENT keyword match — forcing Escalate. From {sender}: {text[:80]}")
-        prediction.label = "Escalate"
-        prediction.uncertain = False 
-
-
+    prediction = current_app.classifier.predict(text)
     add_message(sender, text, prediction)
 
     logger.info(
-        f"[{prediction.label}] {prediction.confidence:.0%} | "
+        f"[{decision.final_label}] {decision.confidence:.0%} | "
         f"From {sender}: {text[:60]}"
     )
-
-    # ── Build the reply based on tier ────────────────────────────────────────
-    reply = _build_reply(sender, text, prediction)
+    if decision.urgent_override:
+        logger.warning(f"🚨 URGENT keyword match — forced Escalate. From {sender}: {text[:80]}")
+    if decision.final_label == "Escalate":
+        logger.warning(build_staff_note(sender, text))
 
     return jsonify({
         "reply":      reply,
@@ -99,12 +90,6 @@ def receive():
 
 def _build_reply(sender: str, text: str, prediction) -> str:
     """Pick the right reply for the predicted tier."""
-    from backend.utils.chat import get_command_reply
-
-    command_reply = get_command_reply(text)
-    if command_reply:
-        return command_reply
-
     # Booking enquiries are handled first, with a verify-before-reveal gate,
     # regardless of the classified tier. Returns None if there's no reference.
     booking_reply = build_booking_reply(text)
